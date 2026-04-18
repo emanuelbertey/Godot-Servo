@@ -1,0 +1,10 @@
+[package]
+name = "godot-servo"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]  # Compile this crate to a dynamic C library.
+
+[dependencies]
+godot = { version = "0.5.1", features = ["api-4-6"] }
