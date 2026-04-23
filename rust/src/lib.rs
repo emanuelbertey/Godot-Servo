@@ -1,5 +1,7 @@
 use godot::{classes::Engine, prelude::*};
 
+mod godot_rendering_context;
+mod godot_window_handle;
 mod servo_manager;
 mod webview_control;
 
@@ -11,8 +13,6 @@ struct GodotServo;
 unsafe impl ExtensionLibrary for GodotServo {
     fn on_stage_init(stage: InitStage) {
         if stage == InitStage::Scene {
-            godot_print!("Hello, world!");
-
             let manager = ServoManager::new_alloc();
             Engine::singleton().register_singleton(
                 "ServoManager", &manager);
@@ -21,8 +21,6 @@ unsafe impl ExtensionLibrary for GodotServo {
 
     fn on_stage_deinit(stage: InitStage) {
         if stage == InitStage::Scene {
-            godot_print!("Goodbye, world!");
-
             let mut engine = Engine::singleton();
             let singleton_name: StringName = "ServoManager".into();
 

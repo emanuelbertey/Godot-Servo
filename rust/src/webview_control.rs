@@ -1,12 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
 use dpi::PhysicalSize;
-use euclid::{Box2D, Point2D};
-use godot::{classes::{Control, Engine, IControl, Image, ImageTexture, InputEvent, InputEventMouse, InputEventMouseButton, InputEventMouseMotion, image::Format}, global, prelude::*};
-use servo::{MouseButtonEvent, MouseMoveEvent, RenderingContext, SoftwareRenderingContext, WebView, WebViewBuilder, WebViewDelegate, WebViewPoint, WheelDelta, WheelEvent, WheelMode};
+use euclid::Point2D;
+use godot::{classes::{Control, Engine, IControl, InputEvent, InputEventMouse, InputEventMouseButton, InputEventMouseMotion}, global, prelude::*};
+use servo::{MouseButtonEvent, MouseMoveEvent, WebView, WebViewBuilder, WebViewDelegate, WebViewPoint, WheelDelta, WheelEvent, WheelMode};
 use url::Url;
 
-use crate::servo_manager::ServoManager;
+use crate::{godot_rendering_context::{GodotOffscreenRenderingContext, GodotRenderingContext}, servo_manager::ServoManager};
 
 enum ProxyEvent {
     UrlChanged(Url),
@@ -17,12 +17,9 @@ enum ProxyEvent {
 #[class(base=Control, tool, rename=WebView)]
 struct WebViewControl {
     base: Base<Control>,
-    rendering_context: Rc<dyn RenderingContext>,
+    rendering_context: Rc<RefCell<dyn GodotRenderingContext>>,
     webview: Rc<WebView>,
-    event_queue: Rc<RefCell<Vec<ProxyEvent>>>,
-    image_texture: Option<Gd<ImageTexture>>,
-    image: Option<Gd<Image>>,
-    buffer: PackedByteArray
+    event_queue: Rc<RefCell<Vec<ProxyEvent>>>
 }
 
 #[godot_api]
@@ -33,15 +30,16 @@ impl IControl for WebViewControl {
             .get_singleton("ServoManager")
             .expect("Failed to get singleton")
             .cast::<ServoManager>();
-        let rendering_context = 
-            Rc::new(
-                SoftwareRenderingContext::new(PhysicalSize::new(800, 600))
-                .expect("Failed to create rendering context"));
+
+        let size = PhysicalSize::new(800, 600);
+        let rendering_context = Rc::new(RefCell::new(
+            GodotOffscreenRenderingContext::new(size)));
+        
         let event_queue = Rc::new(RefCell::new(Vec::new()));
         let webview =
             WebViewBuilder::new(
                 servo_manager.bind().get_servo(),
-                rendering_context.clone()
+                rendering_context.borrow().get_rendering_context()
             )
             .delegate(Rc::new(Proxy {
                 event_queue: event_queue.clone(),
@@ -53,10 +51,7 @@ impl IControl for WebViewControl {
             base,
             rendering_context,
             webview: Rc::new(webview),
-            event_queue,
-            image_texture: None,
-            image: None,
-            buffer: PackedByteArray::new()
+            event_queue
         }
     }
 
@@ -66,8 +61,9 @@ impl IControl for WebViewControl {
     }
 
     fn draw(&mut self) {
-        if let Some(image_texture) = self.image_texture.clone() {
-            self.base_mut().draw_texture(&image_texture, Vector2::ZERO);
+        let texture_option = self.rendering_context.borrow().get_texture();
+        if let Some(texture) = texture_option {
+            self.base_mut().draw_texture(&texture, Vector2::ZERO);
         }
     }
 
@@ -167,8 +163,7 @@ impl IControl for WebViewControl {
 #[godot_api]
 impl WebViewControl {
     fn on_resize(&mut self) {
-        self.image = None;
-        self.image_texture = None;
+        self.rendering_context.borrow_mut().resized();
         let control_size = self.base().get_size();
         self.webview.resize(PhysicalSize {
             width: control_size.x as u32,
@@ -179,38 +174,8 @@ impl WebViewControl {
 
     fn update_image(&mut self) {
         self.webview.paint();
-
-        let window_size = self.rendering_context.size();
-        let width = window_size.width as i32;
-        let height = window_size.height as i32;
-
-        let image_option = self.rendering_context.read_to_image(
-            Box2D::new(Point2D::origin(), Point2D::new(width, height)));
-        if let Some(image_buffer) = image_option {
-            let raw = image_buffer.as_raw();
-            if self.buffer.len() != raw.len() {
-                self.buffer.resize(raw.len());
-            }
-            self.buffer.as_mut_slice().copy_from_slice(raw.as_slice());
-            
-            if self.image_texture.is_none() {
-                let image = Image::create_from_data(
-                    width, height,
-                    false, Format::RGBA8, &self.buffer);
-                let image_texture = ImageTexture::create_from_image(image.as_ref());
-                self.image = image;
-                self.image_texture = image_texture;
-            } else {
-                if let Some(mut image) = self.image.clone() {
-                    image.set_data(width, height, false, Format::RGBA8, &self.buffer);
-                }
-                if let (Some(mut image_texture), Some(image)) =
-                       (self.image_texture.clone(), self.image.clone()) {
-                    image_texture.update(&image);
-                }
-            }
-            self.base_mut().queue_redraw();
-        }
+        self.rendering_context.borrow_mut().update();
+        self.base_mut().queue_redraw();
     }
 }
 
