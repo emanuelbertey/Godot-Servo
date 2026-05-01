@@ -5801,6 +5801,7 @@ dependencies = [
  "strum",
  "uuid",
  "webrender_api",
+ "wgpu-core",
 ]
 
 [[package]]
@@ -6452,6 +6453,7 @@ dependencies = [
  "servo-timers",
  "servo-tracing",
  "servo-webgl",
+ "servo-webgpu",
  "smallvec",
  "stylo_traits",
  "surfman 0.11.0",
@@ -6753,6 +6755,7 @@ dependencies = [
  "servo-profile-traits",
  "servo-storage-traits",
  "servo-url",
+ "servo-webgpu-traits",
  "servo-webxr-api",
  "strum",
  "stylo_atoms",

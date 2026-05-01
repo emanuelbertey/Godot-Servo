@@ -23,9 +23,15 @@ impl IObject for ServoManager {
         let engine = Engine::singleton();
         let opts = Opts::default();
 
-        let mut preferences = Preferences::default();
-        preferences.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0".to_owned();
-        preferences.dom_serviceworker_enabled = true; // Needed for devtools.
+        let mut preferences = Preferences {
+            user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0".to_owned(),
+            dom_serviceworker_enabled: true,
+            // dom_webgl2_enabled: true,
+            dom_webgpu_enabled: true,
+            dom_webgpu_wgpu_backend: "gl".to_owned(),
+            ..Preferences::default()
+        };
+
         if !engine.is_editor_hint() {
             preferences.devtools_server_enabled = true;
             preferences.devtools_server_listen_address = "127.0.0.1:6080".to_owned();
