@@ -1,0 +1,2 @@
+$env:CFLAGS="-D_CRT_NO_TIME_T"
+cargo build --release
