@@ -4,9 +4,9 @@ compatibility_minimum = 4.6
 reloadable = true
 
 [libraries]
-linux.debug.x86_64 =     "res://addons/gdservo/target/debug/libgodot_servo.so"
+linux.debug.x86_64 =     "res://addons/gdservo/target/release/libgodot_servo.so"
 linux.release.x86_64 =   "res://addons/gdservo/target/release/libgodot_servo.so"
-windows.debug.x86_64 =   "res://addons/gdservo/target/debug/godot_servo.dll"
+windows.debug.x86_64 =   "res://addons/gdservo/target/release/godot_servo.dll"
 windows.release.x86_64 = "res://addons/gdservo/target/release/godot_servo.dll"
 macos.debug =            "res://addons/gdservo/target/debug/libgodot_servo.dylib"
 macos.release =          "res://addons/gdservo/target/release/libgodot_servo.dylib"

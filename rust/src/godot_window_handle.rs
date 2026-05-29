@@ -33,28 +33,33 @@ mod platform {
 
     impl HasDisplayHandle for GodotWindowHandle {
         fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
-            // Windows doesn't need a display connection; the handle is empty
             let raw = RawDisplayHandle::Windows(WindowsDisplayHandle::new());
             Ok(unsafe { DisplayHandle::borrow_raw(raw) })
         }
     }
 }
 
-/* These have not been tested and vetted. Kept around for reference.
-#[cfg(all(target_os = "linux", feature = "x11"))]
+#[cfg(target_os = "linux")]
 mod platform {
     use super::*;
     use std::ptr::NonNull;
-    use raw_window_handle::{XlibWindowHandle, XlibDisplayHandle};
+    use raw_window_handle::{XlibWindowHandle, XlibDisplayHandle, WaylandWindowHandle, WaylandDisplayHandle};
 
     impl HasWindowHandle for GodotWindowHandle {
         fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
             let ds = DisplayServer::singleton();
-            // WINDOW_HANDLE on X11 gives the XID (u64)
-            let xid = ds.window_get_native_handle(HandleType::WINDOW_HANDLE, self.window_id);
-            let raw = RawWindowHandle::Xlib(
-                XlibWindowHandle::new(xid as u64)
-            );
+            let raw = if ds.get_name() == "Wayland" {
+                let ptr = ds.window_get_native_handle(HandleType::WINDOW_HANDLE);
+                RawWindowHandle::Wayland(
+                    WaylandWindowHandle::new(
+                        NonNull::new(ptr as usize as *mut std::ffi::c_void)
+                            .expect("wl_surface must be non-null")
+                    )
+                )
+            } else {
+                let xid = ds.window_get_native_handle(HandleType::WINDOW_HANDLE);
+                RawWindowHandle::Xlib(XlibWindowHandle::new(xid as u64))
+            };
             Ok(unsafe { WindowHandle::borrow_raw(raw) })
         }
     }
@@ -62,31 +67,40 @@ mod platform {
     impl HasDisplayHandle for GodotWindowHandle {
         fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
             let ds = DisplayServer::singleton();
-            // DISPLAY_HANDLE on X11 gives the *Display pointer
-            let ptr = ds.window_get_native_handle(HandleType::DISPLAY_HANDLE, self.window_id);
-            let mut handle = XlibDisplayHandle::new(
-                NonNull::new(ptr as *mut c_void)
-            );
-            handle.screen = 0; // set screen number if needed
-            let raw = RawDisplayHandle::Xlib(handle);
+            let raw = if ds.get_name() == "Wayland" {
+                let ptr = ds.window_get_native_handle(HandleType::DISPLAY_HANDLE);
+                RawDisplayHandle::Wayland(
+                    WaylandDisplayHandle::new(
+                        NonNull::new(ptr as usize as *mut std::ffi::c_void)
+                            .expect("wl_display must be non-null")
+                    )
+                )
+            } else {
+                let ptr = ds.window_get_native_handle(HandleType::DISPLAY_HANDLE);
+                let display = NonNull::new(ptr as usize as *mut std::ffi::c_void);
+                let mut handle = XlibDisplayHandle::new(display);
+                handle.screen = 0;
+                RawDisplayHandle::Xlib(handle)
+            };
             Ok(unsafe { DisplayHandle::borrow_raw(raw) })
         }
     }
 }
 
-#[cfg(all(target_os = "linux", feature = "wayland"))]
+#[cfg(target_os = "android")]
 mod platform {
     use super::*;
     use std::ptr::NonNull;
-    use raw_window_handle::{WaylandWindowHandle, WaylandDisplayHandle};
+    use raw_window_handle::{AndroidNdkWindowHandle, AndroidNdkDisplayHandle};
 
     impl HasWindowHandle for GodotWindowHandle {
         fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
             let ds = DisplayServer::singleton();
-            let ptr = ds.window_get_native_handle(HandleType::WINDOW_HANDLE, self.window_id);
-            let raw = RawWindowHandle::Wayland(
-                WaylandWindowHandle::new(
-                    NonNull::new(ptr as *mut c_void).expect("wl_surface must be non-null")
+            let ptr = ds.window_get_native_handle(HandleType::WINDOW_HANDLE);
+            let raw = RawWindowHandle::AndroidNdk(
+                AndroidNdkWindowHandle::new(
+                    NonNull::new(ptr as usize as *mut std::ffi::c_void)
+                        .expect("ANativeWindow must be non-null")
                 )
             );
             Ok(unsafe { WindowHandle::borrow_raw(raw) })
@@ -95,13 +109,7 @@ mod platform {
 
     impl HasDisplayHandle for GodotWindowHandle {
         fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
-            let ds = DisplayServer::singleton();
-            let ptr = ds.window_get_native_handle(HandleType::DISPLAY_HANDLE, self.window_id);
-            let raw = RawDisplayHandle::Wayland(
-                WaylandDisplayHandle::new(
-                    NonNull::new(ptr as *mut c_void).expect("wl_display must be non-null")
-                )
-            );
+            let raw = RawDisplayHandle::AndroidNdk(AndroidNdkDisplayHandle::new());
             Ok(unsafe { DisplayHandle::borrow_raw(raw) })
         }
     }
@@ -116,11 +124,11 @@ mod platform {
     impl HasWindowHandle for GodotWindowHandle {
         fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
             let ds = DisplayServer::singleton();
-            // WINDOW_VIEW gives the NSView pointer on macOS
-            let ptr = ds.window_get_native_handle(HandleType::WINDOW_VIEW, self.window_id);
+            let ptr = ds.window_get_native_handle(HandleType::WINDOW_VIEW);
             let raw = RawWindowHandle::AppKit(
                 AppKitWindowHandle::new(
-                    NonNull::new(ptr as *mut c_void).expect("NSView must be non-null")
+                    NonNull::new(ptr as usize as *mut std::ffi::c_void)
+                        .expect("NSView must be non-null")
                 )
             );
             Ok(unsafe { WindowHandle::borrow_raw(raw) })
@@ -129,10 +137,8 @@ mod platform {
 
     impl HasDisplayHandle for GodotWindowHandle {
         fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
-            // AppKit display handle is empty (no connection object)
             let raw = RawDisplayHandle::AppKit(AppKitDisplayHandle::new());
             Ok(unsafe { DisplayHandle::borrow_raw(raw) })
         }
     }
 }
-*/
