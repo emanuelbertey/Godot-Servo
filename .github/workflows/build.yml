@@ -99,7 +99,7 @@ jobs:
         if: "!contains(matrix.target, 'android')"
         shell: bash
         run: |
-          CARGO_TARGET_DIR="target" cargo build --verbose --locked --release --target ${{ matrix.target }}
+          CARGO_TARGET_DIR="target" cargo build --verbose --release --target ${{ matrix.target }}
 
       - name: Build Rust binary for Android
         if: matrix.target == 'aarch64-linux-android'
@@ -108,7 +108,7 @@ jobs:
         run: |
           mkdir -p target/pthread_mock
           touch target/pthread_mock/libpthread.a
-          cargo ndk -t ${{ matrix.target }} --platform 34 build --release --verbose --locked
+          cargo ndk -t ${{ matrix.target }} --platform 34 build --release --verbose
 
       - name: Rename binary to final_name
         shell: bash
